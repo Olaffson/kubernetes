@@ -1,68 +1,71 @@
 # 🚀 Projet Kubernetes – API Python + MySQL sur Azure AKS
 
 ## 🎯 Objectif du projet
-L’objectif est de déployer une architecture applicative moderne composée de :
-- Une **API Python (FastAPI)** conteneurisée,
+Déployer automatiquement une application complète sur **Azure Kubernetes Service (AKS)** composée de :
+- Une **API Python (FastAPI)**,
 - Une **base de données MySQL**,
-- Hébergées dans un **cluster Azure Kubernetes Service (AKS)**,
-- Avec un **Ingress Controller (NGINX)** pour exposer l’API publiquement.
+- Un **Ingress Controller (NGINX)** pour l’accès public à l’API.
 
-Le système doit être **scalable**, **résilient** et prêt à accueillir un futur front-end consommant l’API.
+Le déploiement est automatisé avec le script **PowerShell `init-k8s.ps1`**.
+
+---
+
+## ⚙️ Déploiement automatisé
+
+### 1️⃣ Prérequis
+- Avoir un cluster AKS actif et configuré (`az login`, `az aks get-credentials`).
+- Avoir **kubectl** et **Azure CLI** installés.
+- PowerShell (≥ 7.0).
+
+### 2️⃣ Lancer le déploiement
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+
+# Lancer le script d’initialisation
+.\init-k8s.ps1
+```
+
+Ce script :
+1. Supprime et recrée le namespace `okotwica`,
+2. Applique tous les manifestes du dossier `k8s/`,
+3. Crée les secrets, services, déploiements et ingress,
+4. Vérifie la disponibilité des pods, services et ingress.
 
 ---
 
 ## 🧱 Architecture technique
 
 ```
-        +----------------------------+
-        |      Utilisateurs          |
-        +-------------+--------------+
-                      |
-                      v
-          +-------------------------+
-          |  Ingress Controller     |
-          |  (NGINX - IP: 4.251.145.205) |
-          +-------------------------+
-                      |
-                      v
-          +-------------------------+
-          | Service API (ClusterIP) |
-          +-----------+-------------+
-                      |
-                      v
-          +-------------------------+
-          |  Pod API (FastAPI)      |
-          +-------------------------+
-                      |
-                      v
-          +-------------------------+
-          | Service MySQL (ClusterIP)|
-          +-----------+-------------+
-                      |
-                      v
-          +-------------------------+
-          |  Pod MySQL + PVC        |
-          +-------------------------+
++----------------------------+
+|        Utilisateurs        |
++-------------+--------------+
+              |
+              v
+   +-------------------------+
+   | Ingress Controller      |
+   | (NGINX - IP publique)   |
+   +-------------------------+
+              |
+              v
+   +-------------------------+
+   | Service API (ClusterIP) |
+   +-----------+-------------+
+               |
+               v
+   +-------------------------+
+   | Pod API (FastAPI)       |
+   +-------------------------+
+               |
+               v
+   +-------------------------+
+   | Service MySQL (ClusterIP)|
+   +-----------+-------------+
+               |
+               v
+   +-------------------------+
+   | Pod MySQL + PVC         |
+   +-------------------------+
 ```
-
----
-
-## 📦 Images Docker utilisées
-
-| Composant | Image Docker | Description |
-|------------|---------------|--------------|
-| **Base de données** | `sengsathit/brief-mysql:latest` | Image MySQL 8.4 avec scripts d’initialisation (`init/`) |
-| **API Python** | `sengsathit/brief-api:latest` | API FastAPI/uvicorn exposée sur le port 8000 |
-
----
-
-## 🌐 API Endpoints attendus
-
-| Méthode | URL publique | Description |
-|----------|---------------|--------------|
-| `GET` | http://4.251.145.205/okotwica/health | Probe de santé |
-| `GET` / `POST` | http://4.251.145.205/okotwica/clients | Liste ou création de clients |
-| `GET` / `DELETE` | http://4.251.145.205/okotwica/clients/{id} | Lecture ou suppression d’un client |
 
 ---
 
@@ -80,106 +83,35 @@ k8s/
 │  ├─ deployment.yaml
 │  └─ service.yaml
 └─ ingress.yaml
+
+screen/           # Captures d’écran du déploiement et des résultats
+init-k8s.ps1      # Script PowerShell de déploiement automatisé
+.gitignore        # Exclut cluster/ et trash.txt
 ```
 
 ---
 
-## ⚙️ Pré-requis
+## 🌐 API exposée
 
-Avant de déployer :
+| Méthode | URL | Description |
+|----------|-----|-------------|
+| `GET` | `/okotwica/health` | Vérifie l’état de l’API |
+| `GET` / `POST` | `/okotwica/clients` | Liste ou ajoute un client |
+| `GET` / `DELETE` | `/okotwica/clients/{id}` | Lecture ou suppression d’un client |
 
-1. **Être connecté à Azure**
-   ```bash
-   az account show
-   ```
-   Si besoin :
-   ```bash
-   az login
-   ```
-
-2. **Récupérer les credentials du cluster AKS**
-   ```bash
-   az aks get-credentials --resource-group RG_PROMO --name cluster_promo
-   ```
-
-3. **Vérifier la connexion**
-   ```bash
-   kubectl get nodes
-   ```
+> Exemple : `curl http://<IP_PUBLIC>/okotwica/health`
 
 ---
 
-## 🧩 Étapes de déploiement
+## 🧩 Vérification du déploiement
 
-### 1️⃣ Créer le namespace
-```bash
-kubectl apply -f k8s/namespace.yaml
-```
-
-### 2️⃣ Créer les secrets (identifiants MySQL)
-```bash
-kubectl apply -f k8s/secrets.yaml
-```
-
-### 3️⃣ Déployer MySQL
-```bash
-kubectl apply -f k8s/mysql/pvc.yaml
-kubectl apply -f k8s/mysql/deployment.yaml
-kubectl apply -f k8s/mysql/service.yaml
-```
-
-Vérifie :
-```bash
+```powershell
 kubectl get pods -n okotwica
 kubectl get svc -n okotwica
+kubectl get ingress -n okotwica
 ```
 
-### 4️⃣ Déployer l’API Python
-```bash
-kubectl apply -f k8s/api/deployment.yaml
-kubectl apply -f k8s/api/service.yaml
-```
-
-Vérifie :
-```bash
-kubectl get pods -n okotwica
-```
-
-### 5️⃣ Créer l’Ingress (NGINX)
-```bash
-kubectl apply -f k8s/ingress.yaml
-```
-
-Vérifie :
-```bash
-kubectl get ingress -n okotwica -o wide
-```
-
----
-
-## 🔍 Tests et vérifications
-
-### 🧠 1. Vérifier le contexte Kubernetes
-```bash
-kubectl config current-context
-```
-
-### ⚙️ 2. Vérifier les pods
-```bash
-kubectl get pods -n okotwica -o wide
-```
-
-### 🌍 3. Tester les endpoints de l’API
-```bash
-# Health check
-curl http://4.251.145.205/okotwica/health
-
-# Liste des clients
-curl http://4.251.145.205/okotwica/clients
-
-# Ajouter un client
-curl -X POST http://4.251.145.205/okotwica/clients   -H "Content-Type: application/json"   -d '{"name":"Alice","email":"alice@example.com"}'
-```
+Tous les pods doivent être en **Running**, et l’ingress doit afficher une **adresse IP publique**.
 
 ---
 
@@ -187,59 +119,33 @@ curl -X POST http://4.251.145.205/okotwica/clients   -H "Content-Type: applicati
 
 | Action | Commande |
 |---------|-----------|
-| Voir les logs d’un pod | `kubectl logs -n okotwica pod/<nom-du-pod>` |
+| Vérifier le contexte | `kubectl config current-context` |
+| Logs d’un pod | `kubectl logs -n okotwica pod/<nom>` |
 | Supprimer une ressource | `kubectl delete -f <fichier.yaml>` |
-| Voir tous les services | `kubectl get svc -n okotwica` |
-| Voir tous les ingress | `kubectl get ingress -n okotwica` |
-| Déployer tout le projet d’un coup | `kubectl apply -f k8s/` |
+| Re-déployer tout | `.\init-k8s.ps1` |
 
 ---
 
-## 🧼 Nettoyage complet
+## 🧼 Nettoyage
 
-Pour supprimer toutes les ressources du namespace :
-```bash
+Pour tout supprimer :
+```powershell
 kubectl delete namespace okotwica
 ```
 
 ---
 
-## 🛠️ Dépannage rapide
+## 📸 Captures d’écran
 
-| Problème | Cause probable | Solution |
-|-----------|----------------|-----------|
-| `CrashLoopBackOff` sur MySQL | Mauvais mots de passe ou init SQL invalide | Vérifie les logs avec `kubectl logs -n okotwica pod/<mysql-pod>` |
-| `Connection refused` entre API et DB | Mauvais `DB_HOST` ou secret manquant | Vérifie `env` et la présence du service `db` |
-| 404 sur l’URL publique | Ingress NGINX non configuré ou IP différente | Vérifie `kubectl get ingress -A` et `kubectl get svc -n ingress-nginx` |
-| `Forbidden` en kubectl | Permissions RBAC insuffisantes | Vérifie ton rôle AKS (service principal ou utilisateur) |
-
----
-
-## 📖 Notes complémentaires
-
-- L’Ingress suppose que le **NGINX Ingress Controller** est déjà installé.
-  Vérifie avec :
-  ```bash
-  kubectl get svc -n ingress-nginx
-  ```
-  Si tu vois une IP publique (ici `4.251.145.205`), tout est bon.
-
-- Pour l’installation rapide de NGINX Ingress :
-  ```bash
-  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx     --namespace ingress-nginx --create-namespace
-  ```
+Le dossier `screen/` contient plusieurs impressions d’écran du déploiement et des tests réussis :
+- `pods_running.png`
+- `api_health.png`
+- `ingress_ip.png`
+- `kubectl_output.png`
 
 ---
 
-## ✅ Résultat attendu
-
-Une fois tout déployé :
-- `kubectl get pods -n okotwica` → tous en **Running**
-- `curl http://4.251.145.205/okotwica/health` → renvoie `{"status":"ok"}` (ou équivalent)
-- L’API est accessible via les endpoints publics.
-
----
-
-🧑‍💻 Auteur : *Olivier KOTWICA*  
-📅 Projet : *Déploiement AKS – Simplon HDF - Data Engineer P1*
+## 🧑‍💻 Auteur
+**Olivier KOTWICA**  
+Projet : *Déploiement AKS – Simplon HDF (Data Engineer P1)*  
+Date : *Novembre 2025*
