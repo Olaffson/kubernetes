@@ -2,11 +2,12 @@
 
 ## 🎯 Objectif du projet
 Déployer automatiquement une application complète sur **Azure Kubernetes Service (AKS)** composée de :
-- Une **API Python (FastAPI)**,
-- Une **base de données MySQL**,
-- Un **Ingress Controller (NGINX)** pour l’accès public à l’API.
+- Une **API Python (FastAPI)**,  
+- Une **base de données MySQL**,  
+- Un **Ingress Controller (NGINX)** pour l’accès public à l’API,  
+- Et un **workflow GitHub Actions** pour déployer automatiquement depuis le dépôt.
 
-Le déploiement est automatisé avec le script **PowerShell `init-k8s.ps1`**.
+Le déploiement est géré par le script **PowerShell `init-k8s.ps1`**, et le workflow **GitHub Actions `deploy-aks.yml`** permet d’automatiser ce processus depuis GitHub.
 
 ---
 
@@ -14,10 +15,13 @@ Le déploiement est automatisé avec le script **PowerShell `init-k8s.ps1`**.
 
 ### 1️⃣ Prérequis
 - Avoir un cluster AKS actif et configuré (`az login`, `az aks get-credentials`).
-- Avoir **kubectl** et **Azure CLI** installés.
-- PowerShell (≥ 7.0).
+- Avoir **kubectl**, **Azure CLI**, et **PowerShell (≥ 7.0)** installés.
+- Disposer d’un **Service Principal Azure** avec les droits *Contributor* sur le Resource Group de ton cluster.
+- Secrets configurés dans GitHub (voir plus bas).
 
-### 2️⃣ Lancer le déploiement
+---
+
+### 2️⃣ Déploiement local (manuel)
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 
@@ -30,6 +34,48 @@ Ce script :
 2. Applique tous les manifestes du dossier `k8s/`,
 3. Crée les secrets, services, déploiements et ingress,
 4. Vérifie la disponibilité des pods, services et ingress.
+
+#### 🔐 Secrets à renseigner dans GitHub
+
+Avant de lancer le workflow, tu dois créer **4 secrets GitHub** (dans *Settings → Secrets and variables → Actions*) :
+
+| Nom du secret | Description |
+|----------------|-------------|
+| `AZURE_SUBSCRIPTION_ID` | ID de ton abonnement Azure |
+| `AZURE_RESOURCE_GROUP` | Nom du Resource Group contenant le cluster AKS |
+| `AKS_CLUSTER_NAME` | Nom du cluster AKS à déployer (ex: `cluster_promo`) |
+| `AZURE_CREDENTIALS` | JSON du Service Principal Azure, au format suivant : |
+
+```json
+{
+  "clientId": "<APP_ID>",
+  "clientSecret": "<PASSWORD>",
+  "subscriptionId": "<SUBSCRIPTION_ID>",
+  "tenantId": "<TENANT_ID>",
+  "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
+  "resourceManagerEndpointUrl": "https://management.azure.com/",
+  "activeDirectoryGraphResourceId": "https://graph.windows.net/",
+  "sqlManagementEndpointUrl": "https://management.core.windows.net:8443/",
+  "galleryEndpointUrl": "https://gallery.azure.com/",
+  "managementEndpointUrl": "https://management.core.windows.net/"
+}
+```
+
+---
+
+### 3️⃣ Déploiement via GitHub Actions
+
+Le workflow **`.github/workflows/deploy-aks.yml`** permet d’exécuter le même déploiement depuis GitHub.
+
+#### 🔁 Déclenchement 
+- **Manuel** via l’onglet **Actions → Deploy AKS (init-k8s.ps1)** → *Run workflow*.
+
+#### ⚙️ Ce que fait le workflow :
+1. Se connecte à **Azure** avec le secret `AZURE_CREDENTIALS`.
+2. Configure le **contexte Kubernetes** sur le cluster AKS cible.
+3. Exécute le script **PowerShell `init-k8s.ps1`** pour (re)déployer toutes les ressources.
+4. Vérifie la présence des pods, services et ingress.
+5. Affiche un état final du namespace.
 
 ---
 
@@ -72,6 +118,10 @@ Ce script :
 ## 📁 Structure du projet
 
 ```
+.github/
+└─ workflows/
+   └─ deploy-aks.yml      # Workflow GitHub Actions pour déploiement automatique
+
 k8s/
 ├─ api_deployment.yaml
 ├─ api_service.yaml
@@ -92,7 +142,6 @@ init-k8s.ps1      # Script PowerShell de déploiement automatisé
 .gitignore        # Exclut cluster/ et trash.txt
 LICENSE           # Licence du projet
 README.md         # Documentation principale
-trash.txt         # Fichier ignoré (non utilisé)
 ```
 
 ---
@@ -105,7 +154,8 @@ trash.txt         # Fichier ignoré (non utilisé)
 | `GET` / `POST` | `/okotwica/clients` | Liste ou ajoute un client |
 | `GET` / `DELETE` | `/okotwica/clients/{id}` | Lecture ou suppression d’un client |
 
-> Exemple : `curl http://<IP_PUBLIC>/okotwica/health`
+> Exemple :  
+> `curl http://<IP_PUBLIC>/okotwica/health`
 
 ---
 
