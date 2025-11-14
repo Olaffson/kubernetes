@@ -73,20 +73,26 @@ Ce script :
 
 ```
 k8s/
+├─ api_deployment.yaml
+├─ api_service.yaml
+├─ ingress.yaml
+├─ mysql_deployment.yaml
+├─ mysql_pvc.yaml
+├─ mysql_service.yaml
 ├─ namespace.yaml
-├─ secrets.yaml
-├─ mysql/
-│  ├─ pvc.yaml
-│  ├─ deployment.yaml
-│  └─ service.yaml
-├─ api/
-│  ├─ deployment.yaml
-│  └─ service.yaml
-└─ ingress.yaml
+└─ secrets.yaml
 
-screen/           # Captures d’écran du déploiement et des résultats
+screen/
+├─ client1.png
+├─ clients.png
+├─ health.png
+└─ okotwica.png
+
 init-k8s.ps1      # Script PowerShell de déploiement automatisé
 .gitignore        # Exclut cluster/ et trash.txt
+LICENSE           # Licence du projet
+README.md         # Documentation principale
+trash.txt         # Fichier ignoré (non utilisé)
 ```
 
 ---
@@ -138,10 +144,10 @@ kubectl delete namespace okotwica
 ## 📸 Captures d’écran
 
 Le dossier `screen/` contient plusieurs impressions d’écran du déploiement et des tests réussis :
-- `pods_running.png`
-- `api_health.png`
-- `ingress_ip.png`
-- `kubectl_output.png`
+- `client1.png` : consultation d’un client spécifique  
+- `clients.png` : liste des clients  
+- `health.png` : vérification de la santé de l’API  
+- `okotwica.png` : vue globale du namespace et des ressources
 
 ---
 
